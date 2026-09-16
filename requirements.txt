@@ -1,0 +1,21 @@
+# Ingestion
+requests              # appels API génériques (data.gouv.fr)
+pytrends               # Google Trends (API non-officielle)
+Faker                   # génération de données synthétiques (Transactions)
+pandas                  # manipulation de données
+airbyte-cdk             # framework pour les connecteurs custom OFF / data.gouv.fr
+
+# Warehouse
+snowflake-connector-python   # chargement direct vers Bronze (scripts hors Airbyte)
+
+# Transformation
+dbt-snowflake           # installe dbt-core + l'adaptateur Snowflake
+
+# ML
+xgboost                 # modèle promos
+prophet                 # prévision de demande
+mlxtend                 # Apriori / Market Basket Analysis
+scikit-learn            # prétraitement, métriques
+
+# Restitution
+streamlit               # app de restitution
