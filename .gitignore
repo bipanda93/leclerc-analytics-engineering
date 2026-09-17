@@ -1,0 +1,15 @@
+# Python
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+
+# Environnement
+.env
+
+# macOS
+.DS_Store
+
+# dbt
+target/
+dbt_packages/
+logs/
