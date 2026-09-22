@@ -33,3 +33,11 @@ enrichir la couverture) avec justification.
 Reste à faire sur le script : tables de poids saisonniers/affinité, 
 génération des clients, boucle de génération des transactions, prix, 
 écriture vers Bronze.
+
+## 2026-09-22 (suite)
+
+Script transactions_generator.py terminé de bout en bout — blocs 3 à 7 (poids par rayon dérivés du panier moyen Kantar Worldpanel pondéré par les volumes réels Open Food Facts, saisonnalité sur 7 rayons, règles d'affinité probabilistes, génération de 10 000 clients avec 3 profils de fréquence, prix validés contre des données réelles françaises 2026, écriture vers Bronze). Plusieurs incidents de débogage résolus (voir incidents_2026-09-22.md).
+
+Run final : 10 000 clients, 175 664 transactions, 1 492 481 lignes — cohérent avec les paramètres théoriques (moyenne ~17,6 transactions/client, ~8,5 articles/panier).
+
+Bronze est maintenant peuplé sur 3 des 4 sources (Open Food Facts, Open Prices, Transactions). Reste Google Trends avant de démarrer dbt.

@@ -126,3 +126,33 @@ transforme en transit, avant l'atterrissage dans Delta Lake) ; Leclerc
 fait de l'ELT batch pur (Airbyte charge le brut sans y toucher, dbt 
 transforme après, dans l'entrepôt). Le choix correspond à la nature de 
 chaque source, pas à une préférence arbitraire.
+
+## ADR-12 — Pondération des rayons : panier moyen Kantar × volumes OFF
+
+**Décision** : le poids de base de chaque rayon combine deux sources — la part budgétaire de sa famille Kantar Worldpanel (France 2025), répartie entre les rayons de cette famille au prorata de leur volume réel dans Open Food Facts.
+**Justification** : Kantar donne la vraie fréquence d'achat par grande famille (pas biaisée par l'activité contributive OFF) ; le volume OFF sert uniquement à répartir ce budget entre rayons plus fins au sein d'une même famille.
+**Limite assumée** : 5 rayons (Condiments/Épices, Compléments alimentaires) n'ont aucun équivalent Kantar — poids arbitraire faible (2%) plutôt qu'une vraie donnée de marché.
+
+## ADR-13 — Saisonnalité : 7 rayons, ordres de grandeur intuitifs
+
+**Décision** : seuls 7 rayons (Surgelés, Boissons, Chocolat/cacao, Confiseries, Plats préparés, Viandes/charcuterie, Sandwiches) reçoivent un multiplicateur mensuel ; le reste garde un poids plat toute l'année.
+**Justification** : ce sont les seuls rayons avec un signal saisonnier français bien reconnu (été = grillades/glaces/pique-nique, décembre = chocolat/plats festifs). Forcer une saisonnalité sur les autres rayons aurait été de l'invention pure.
+**Limite assumée** : les multiplicateurs eux-mêmes ne sont pas sourcés (pas de données Kantar mensuelles disponibles) — ordres de grandeur construits, pas mesurés.
+
+## ADR-14 — Perte de temporalité sur Open Prices
+
+**Contexte** : un deuxième bug "Timestamp is not JSON serializable" (distinct de celui déjà documenté en ADR-8, même symptôme, cause différente) a forcé l'exclusion de 6 champs à consonance temporelle (date, proof_date, created, updated, proof_created, proof_updated, location_created, location_updated), pas seulement les 2 initialement identifiés.
+**Décision** : accepté — aucun moyen de savoir quand un prix Open Prices a été observé ou enregistré.
+**Justification** : produit, prix, catégorie et localisation restent intacts (suffisant pour KPIs/MBA) ; l'angle "évolution du prix dans le temps" sort du scope de ce projet.
+
+## ADR-15 — Prix synthétiques validés contre données réelles 2026
+
+**Décision** : les fourchettes de prix par rayon (repli quand aucun prix réel Open Prices n'est disponible) ont été vérifiées contre des prix français réels 2026 (lait, pain, œufs, fromage, viande, fruits/légumes, boissons) plutôt que purement inventées.
+**Ajustement issu de cette vérification** : Boissons scindé — vin/champagne isolés dans une fourchette propre (KEYWORD_PRICE_OVERRIDES sur le nom du produit) pour ne pas fausser la fourchette du reste des boissons (eau, soda, bière).
+**Limite assumée** : seuls 8 rayons sur 26 ont été vérifiés contre une vraie source ; le reste reste construit par intuition, même niveau de confiance que la saisonnalité (ADR-13).
+
+## ADR-16 — Bruit de tagging résiduel Open Food Facts, non corrigé
+
+**Constat** : certains produits portent un tag de catégorie manifestement erroné à la source (ex. "Fruits de mer" classé sous `en:cocoa-and-its-products`).
+**Décision** : non corrigé — ce n'est pas un bug de la logique de catégorisation (`CASE WHEN` déjà validé sur 93,8% de couverture), mais une erreur de donnée contributive, hors du contrôle du pipeline.
+**Justification** : sur 578 089 produits, quelques erreurs de tagging isolées ont un impact négligeable sur des paniers agrégés ; construire une détection d'anomalies dédiée sortirait du scope du projet, même logique que ADR-9/ADR-10.
