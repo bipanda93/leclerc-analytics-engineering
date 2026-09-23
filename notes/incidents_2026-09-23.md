@@ -48,3 +48,12 @@ directement dans l'éditeur plutôt que coller.
 
 ## Confusion emplacement dossier dbt init
 `dbt init leclerc_dbt` lancé depuis `~/leclerc-analytics-engineering/leclerc_dbt/` (dossier déjà existant portant ce nom) plutôt que depuis `~/leclerc-analytics-engineering/dbt/` — a créé une double imbrication (`leclerc_dbt/leclerc_dbt/`). Un vieux dossier vide `dbt/leclerc_dbt/` (placeholder de l'arborescence initiale du 16 septembre, jamais rempli) a ajouté à la confusion lors du diagnostic. Fix : `find -name dbt_project.yml` pour localiser sans ambiguïté le vrai projet, suppression du placeholder vide, déplacement du vrai projet vers `dbt/leclerc_dbt/`. `dbt debug` relancé et validé après coup.
+
+## RBAC Bronze/Silver incomplet lors de la mise en place initiale
+ACCOUNTADMIN n'avait accès ni à OPEN_PRICES ni à TRANSACTIONS (créées par LECLERC_AIRBYTE_LOADER, propriétaire par défaut), reproduisant l'incident déjà documenté le 22 septembre — Snowflake n'accorde jamais d'accès automatique aux objets créés par un autre rôle, même à ACCOUNTADMIN. Fix cette fois plus large et définitif : GRANT SELECT ON FUTURE TABLES/VIEWS IN SCHEMA posé sur BRONZE et sur SILVER, couvrant tout objet futur peu importe le rôle créateur.
+
+## Confusions terminal répétées sur --select
+Plusieurs tentatives infructueuses pour lancer un modèle dbt ciblé : nom de fichier avec extension .sql ajoutée par erreur (--select attend le nom du modèle, pas le nom de fichier), puis un seul underscore tapé au lieu de deux dans stg_insee__conjoncture (convention stg_<source>__<entité>). dbt échoue silencieusement dans ce cas (aucune erreur, juste "no matching nodes") — à bien distinguer d'un vrai échec de modèle.
+
+## Erreurs de syntaxe SQL répétées en testant dans Snowsight
+Requêtes de vérification manuelle : confusion guillemets simples/doubles ('valeur' vs "identifiant"), requête collée en dessous d'une précédente sans effacer (deux requêtes lues comme un seul bloc invalide), et Object 'CLEANED' does not exist quand seule la partie finale d'un CTE est sélectionnée avant exécution — toujours nécessaire de sélectionner tout le bloc (Cmd+A) avant de lancer dans Snowsight.

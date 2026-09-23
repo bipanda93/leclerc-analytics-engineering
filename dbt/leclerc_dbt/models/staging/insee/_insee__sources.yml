@@ -1,0 +1,8 @@
+version: 2
+
+sources:
+  - name: bronze
+    database: LECLERC
+    schema: BRONZE
+    tables:
+      - name: insee_conjoncture
