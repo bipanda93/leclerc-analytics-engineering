@@ -175,3 +175,14 @@ chaque source, pas à une préférence arbitraire.
 **Constat** : à la date de mise en place (23 septembre 2026), le compte accepte toujours l'authentification par mot de passe — `dbt debug` réussi.
 **Décision** : conservé tel quel pour l'instant plutôt que de migrer préventivement vers une authentification par paire de clés RSA.
 **Risque assumé** : la connexion peut cesser de fonctionner sans préavis si le compte bascule dans la fenêtre d'enforcement en cours de projet — cohérent avec le risque déjà documenté pour Airbyte (même cause, deux symptômes potentiels).
+
+## ADR-20 — Modèles staging : un par source, sans déduplication ni incrémental
+
+**Décision** : 4 modèles staging en vues simples (pas de table matérialisée, pas de logique incrémentale), chacun listant explicitement les colonnes utiles plutôt qu'un `select *`.
+**Justification** : les 4 sources sont déjà à un volume raisonnable pour dbt (le plus gros, Transactions, ~1,5M lignes, se recalcule en vue en une fraction de seconde) ; aucun doublon identifié ne justifie une déduplication CTE+ROW_NUMBER à ce stade.
+**Limite assumée** : si le volume de Transactions grossissait significativement (plusieurs runs successifs sans purge, par exemple), une matérialisation incrémentale deviendrait pertinente — non implémentée pour rester dans le scope du projet.
+
+## ADR-21 — RBAC étendu : accès futur sur Bronze et Silver
+
+**Contexte** : deux incidents distincts (22 et 23 septembre) où ACCOUNTADMIN n'avait pas accès à une table fraîchement créée par LECLERC_AIRBYTE_LOADER ou LECLERC_DBT_TRANSFORMER — Snowflake n'accorde jamais d'accès automatique aux objets créés par un autre rôle.
+**Décision** : `GRANT SELECT ON FUTURE TABLES/VIEWS IN SCHEMA` posé sur BRONZE et SILVER pour ACCOUNTADMIN, couvrant tout objet futur peu importe le rôle créateur — résout la classe d'incident pour de bon, pas juste l'occurrence ponctuelle.

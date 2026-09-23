@@ -64,3 +64,11 @@ profiles.yml dbt, puis premiers modèles staging.
 Projet dbt initialisé (`dbt init`) dans `dbt/leclerc_dbt/`. Authentification par mot de passe encore acceptée par Snowflake malgré la deadline officielle du 31 août 2026 (enforcement rolling, compte pas encore basculé). Connexion validée par `dbt debug` — LECLERC_DBT_SVC / LECLERC_DBT_TRANSFORMER, schema par défaut SILVER. profiles.yml correctement généré hors repo (~/.dbt/profiles.yml).
 
 Les 4 sources sont dans Bronze, dbt est connecté. Prochaine étape : premiers modèles staging.
+
+## 2026-09-23 (staging dbt)
+
+Les 4 modèles staging créés et validés : stg_openfoodfacts__products (578 089, correction du bug code-barres Number→VARCHAR, ADR-8 enfin traité), stg_open_prices__prices (228 758, filtré EUR + code non nul), stg_transactions__transactions (1 482 041), stg_insee__conjoncture (368, period converti en DATE). Chaque requête validée manuellement dans Snowsight avant d'être figée en fichier .sql avec Jinja — même méthode que pour la catégorisation OFF il y a quelques jours.
+
+RBAC complété : GRANT SELECT ON FUTURE TABLES/VIEWS posé sur BRONZE et SILVER pour ACCOUNTADMIN, pour ne plus revivre l'incident d'accès manquant à chaque nouvel objet créé.
+
+dbt run complet validé (4/4 modèles, exécution parallèle ~4s). Prochaine étape : modèles intermediate (jointures entre sources), puis les marts (RFM, MBA, KPIs, Tendances).
