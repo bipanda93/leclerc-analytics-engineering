@@ -41,3 +41,20 @@ Script transactions_generator.py terminé de bout en bout — blocs 3 à 7 (poid
 Run final : 10 000 clients, 175 664 transactions, 1 492 481 lignes — cohérent avec les paramètres théoriques (moyenne ~17,6 transactions/client, ~8,5 articles/panier).
 
 Bronze est maintenant peuplé sur 3 des 4 sources (Open Food Facts, Open Prices, Transactions). Reste Google Trends avant de démarrer dbt.
+
+
+## 2026-09-23
+
+Script `insee_conjoncture_extract.py` créé et terminé — pivot décidé en 
+amont depuis Google Trends (pytrends archivé) vers l'API SDMX gratuite de 
+l'INSEE. Indicateur IPC Alimentation France (idbank 011813717) récupéré, 
+parsé (XML/ElementTree), écrit dans LECLERC.BRONZE.INSEE_CONJONCTURE — 368 
+observations, 1996-01 à 2026-08.
+
+Refactoring : `snowflake_utils.py` créé pour centraliser la connexion 
+Snowflake, partagé entre `transactions_generator.py` et ce nouveau script 
+— élimine la duplication de la logique `.env`/connexion.
+
+Bronze est maintenant peuplé sur les 4 sources prévues (Open Food Facts, 
+Open Prices, Transactions, INSEE Conjoncture). Prochaine étape : 
+profiles.yml dbt, puis premiers modèles staging.
