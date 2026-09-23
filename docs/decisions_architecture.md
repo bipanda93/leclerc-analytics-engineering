@@ -168,3 +168,10 @@ chaque source, pas à une préférence arbitraire.
 
 **Décision** : extraction de la logique de connexion Snowflake (chargement `.env`, validation, `get_connection()`) dans `ingestion/snowflake_utils.py`, importé par tous les scripts d'ingestion plutôt que dupliqué.
 **Justification** : évite la duplication à mesure que le nombre de scripts augmente (Transactions, INSEE, et au-delà) ; un seul endroit à modifier si les identifiants ou la logique de connexion changent.
+
+## ADR-19 — Authentification dbt par mot de passe malgré la deadline du 31 août 2026
+
+**Contexte** : Snowflake annonce la fin du support de l'authentification par mot de passe pour les connexions dbt à partir du 31 août 2026 (enforcement rolling par compte, même mécanisme que celui déjà noté pour Airbyte).
+**Constat** : à la date de mise en place (23 septembre 2026), le compte accepte toujours l'authentification par mot de passe — `dbt debug` réussi.
+**Décision** : conservé tel quel pour l'instant plutôt que de migrer préventivement vers une authentification par paire de clés RSA.
+**Risque assumé** : la connexion peut cesser de fonctionner sans préavis si le compte bascule dans la fenêtre d'enforcement en cours de projet — cohérent avec le risque déjà documenté pour Airbyte (même cause, deux symptômes potentiels).
