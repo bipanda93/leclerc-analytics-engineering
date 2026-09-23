@@ -45,3 +45,6 @@ Apostrophes probablement altérées lors d'un copier-coller (apostrophe
 "intelligente" au lieu d'une apostrophe simple), causant une chaîne non 
 terminée dans un message d'erreur f-string. Fix : retaper la ligne 
 directement dans l'éditeur plutôt que coller.
+
+## Confusion emplacement dossier dbt init
+`dbt init leclerc_dbt` lancé depuis `~/leclerc-analytics-engineering/leclerc_dbt/` (dossier déjà existant portant ce nom) plutôt que depuis `~/leclerc-analytics-engineering/dbt/` — a créé une double imbrication (`leclerc_dbt/leclerc_dbt/`). Un vieux dossier vide `dbt/leclerc_dbt/` (placeholder de l'arborescence initiale du 16 septembre, jamais rempli) a ajouté à la confusion lors du diagnostic. Fix : `find -name dbt_project.yml` pour localiser sans ambiguïté le vrai projet, suppression du placeholder vide, déplacement du vrai projet vers `dbt/leclerc_dbt/`. `dbt debug` relancé et validé après coup.

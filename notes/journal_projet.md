@@ -58,3 +58,9 @@ Snowflake, partagé entre `transactions_generator.py` et ce nouveau script
 Bronze est maintenant peuplé sur les 4 sources prévues (Open Food Facts, 
 Open Prices, Transactions, INSEE Conjoncture). Prochaine étape : 
 profiles.yml dbt, puis premiers modèles staging.
+
+## 2026-09-23 (suite)
+
+Projet dbt initialisé (`dbt init`) dans `dbt/leclerc_dbt/`. Authentification par mot de passe encore acceptée par Snowflake malgré la deadline officielle du 31 août 2026 (enforcement rolling, compte pas encore basculé). Connexion validée par `dbt debug` — LECLERC_DBT_SVC / LECLERC_DBT_TRANSFORMER, schema par défaut SILVER. profiles.yml correctement généré hors repo (~/.dbt/profiles.yml).
+
+Les 4 sources sont dans Bronze, dbt est connecté. Prochaine étape : premiers modèles staging.
