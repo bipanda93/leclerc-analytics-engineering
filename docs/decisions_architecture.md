@@ -156,3 +156,15 @@ chaque source, pas à une préférence arbitraire.
 **Constat** : certains produits portent un tag de catégorie manifestement erroné à la source (ex. "Fruits de mer" classé sous `en:cocoa-and-its-products`).
 **Décision** : non corrigé — ce n'est pas un bug de la logique de catégorisation (`CASE WHEN` déjà validé sur 93,8% de couverture), mais une erreur de donnée contributive, hors du contrôle du pipeline.
 **Justification** : sur 578 089 produits, quelques erreurs de tagging isolées ont un impact négligeable sur des paniers agrégés ; construire une détection d'anomalies dédiée sortirait du scope du projet, même logique que ADR-9/ADR-10.
+
+## ADR-17 — Pivot Google Trends → INSEE Conjoncture
+
+**Contexte** : `pytrends`, prévu dès l'architecture initiale, s'est révélé archivé (dépôt GitHub gelé depuis avril 2025, non maintenu), avec un comportement de rate-limiting imprévisible.
+**Décision** : remplacé par l'API SDMX gratuite et sans clé de l'INSEE (bdm.insee.fr), indicateur IPC Alimentation France (idbank 011813717), mensuel depuis 1996.
+**Justification** : source gouvernementale officielle, activement maintenue, cohérente avec le choix déjà fait pour Open Prices (data.gouv.fr) ; un indice de consommation réel est aussi un signal de demande plus direct qu'un proxy d'intérêt de recherche.
+**Limite assumée** : un seul indicateur global (prix alimentaire), pas de déclinaison par rayon — contrairement à ce qu'aurait pu permettre un suivi de mots-clés Google Trends par catégorie.
+
+## ADR-18 — Module snowflake_utils.py partagé
+
+**Décision** : extraction de la logique de connexion Snowflake (chargement `.env`, validation, `get_connection()`) dans `ingestion/snowflake_utils.py`, importé par tous les scripts d'ingestion plutôt que dupliqué.
+**Justification** : évite la duplication à mesure que le nombre de scripts augmente (Transactions, INSEE, et au-delà) ; un seul endroit à modifier si les identifiants ou la logique de connexion changent.
