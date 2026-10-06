@@ -17,3 +17,6 @@ Erreur "unexpected 'with'" ligne 38 : l'ancienne et la nouvelle version du mart 
 
 ## YAML des tests mal formé
 Erreur de parsing ligne 5 : bloc de colonne sans la ligne `columns:` au-dessus, puis deux versions du fichier collées l'une sous l'autre, dont une sans indentation. Fix : réécriture complète par le terminal. À retenir : dbt parse attrape les erreurs de structure YAML et de Jinja, mais pas les erreurs de SQL, que seul Snowflake juge au dbt run.
+
+## 584 codes produits introuvables dans la jointure Transactions × Produits
+Le contrôle de jointure donnait 99,85 % : 2 284 lignes de transactions (584 codes distincts) sans rayon. Les produits existaient toujours dans Bronze, mais le même nombre s'écrit différemment en texte côté Python (entier complet) et côté Snowflake (conversion du FLOAT). Ces codes font de 16 à 28 chiffres, ce ne sont pas de vrais codes-barres. Ma première correction (convertir en NUMBER(38,0)) a échoué : au moins un code dépasse 38 chiffres, ce qui aurait aussi fait planter le dbt run. Fix retenu : comparer en nombre flottant (voir ADR-26).

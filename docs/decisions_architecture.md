@@ -210,3 +210,11 @@ chaque source, pas à une préférence arbitraire.
 **Contexte** : par défaut, dbt colle le schéma de la connexion devant le schéma demandé (SILVER_gold au lieu de GOLD).
 **Décision** : macro generate_schema_name qui utilise le nom personnalisé tel quel, et le schéma par défaut sinon.
 **Droits** : GRANT SELECT ON FUTURE TABLES/VIEWS posé au niveau de la base LECLERC pour ACCOUNTADMIN (étend l'ADR-21 à tout futur schéma).
+
+## ADR-26 — Jointure Transactions × Produits sur le code numérique
+
+**Contexte** : 584 codes produits (2 284 lignes de transactions, 0,15 %) ne se retrouvaient pas dans le modèle staging des produits. Ils font de 16 à 28 chiffres (ce ne sont pas de vrais codes-barres), sont stockés en FLOAT dans Bronze (exact sur 15 à 17 chiffres seulement) et s'écrivent différemment en texte côté Python (entier complet) et côté Snowflake (conversion du FLOAT).
+**Essai écarté** : conversion en NUMBER(38,0), qui échoue car au moins un code dépasse 38 chiffres.
+**Décision** : le staging garde `product_code` (texte) et ajoute `product_code_num` (le FLOAT d'origine). Les jointures se font avec `try_to_double(t.product_code) = p.product_code_num`.
+**Résultat** : 1 482 041 lignes sur 1 482 041 retrouvent leur rayon (100 %), sans duplication.
+**Limite** : comparaison de flottants, exacte seulement jusqu'à 15-17 chiffres ; les produits dont le code contient des lettres sont déjà perdus à l'ingestion (colonne FLOAT, voir ADR-8).
