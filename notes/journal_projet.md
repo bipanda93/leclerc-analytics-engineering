@@ -80,3 +80,7 @@ Premier mart construit : gold.mart_rfm_customers, 10 000 clients, calculé avec 
 Cinq segments définis (achats nombreux/moyens/faibles, actifs ou partis), colonne segment ajoutée au mart avec un else 'non classé' défensif. 10 tests dbt passent.
 
 Reste dans les marts : KPIs (enrichi par rayon), préparation SQL du MBA, Tendances (Transactions + INSEE).
+
+## 2026-10-06 (jointure Transactions × Produits)
+
+Avant de construire le mart KPIs, contrôle de la jointure avec le catalogue produits : 99,85 % au départ, 100 % après correction (clé de jointure numérique dans le staging). Aucune duplication de lignes.
