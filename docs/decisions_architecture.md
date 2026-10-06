@@ -218,3 +218,20 @@ chaque source, pas à une préférence arbitraire.
 **Décision** : le staging garde `product_code` (texte) et ajoute `product_code_num` (le FLOAT d'origine). Les jointures se font avec `try_to_double(t.product_code) = p.product_code_num`.
 **Résultat** : 1 482 041 lignes sur 1 482 041 retrouvent leur rayon (100 %), sans duplication.
 **Limite** : comparaison de flottants, exacte seulement jusqu'à 15-17 chiffres ; les produits dont le code contient des lettres sont déjà perdus à l'ingestion (colonne FLOAT, voir ADR-8).
+
+## ADR-27 — Deux marts KPIs : un par rayon, un par mois
+
+**Contexte** : la somme de nb_transactions_rayon sur tous les rayons d'un mois vaut environ 5,9 fois le nombre réel de transactions, parce qu'un panier est compté dans chaque rayon qu'il touche.
+**Décision** : mart_kpis_mois_rayon (chiffre d'affaires, quantités, clients par mois et par rayon) pour l'analyse par catégorie ; mart_kpis_mois (grain d'un mois, vraies transactions) pour le panier moyen et les indicateurs globaux. Un test dbt vérifie que les deux marts donnent le même chiffre d'affaires par mois.
+**Règle** : ne jamais additionner nb_transactions_rayon entre rayons.
+
+## ADR-28 — Mois partiels signalés plutôt que retirés
+
+**Contexte** : la période des transactions couvre 365 jours avant le lancement du générateur, donc septembre 2025 ne compte que 8 jours et septembre 2026 que 22.
+**Décision** : les mois partiels restent dans le mart, avec une colonne mois_partiel et un chiffre d'affaires par jour (ca_par_jour) comparable d'un mois à l'autre.
+**Conséquence** : les tableaux de bord doivent utiliser ca_par_jour pour comparer un mois partiel aux autres, ou filtrer sur mois_partiel.
+
+## ADR-29 — Limites du générateur visibles dans les KPIs
+
+**Constat** : (1) les transactions mensuelles passent de 8 733 à 22 549 alors que le nombre de clients actifs reste proche de 5 400, effet probable du biais de dates des profils (fréquents vers la fin de la période, rares vers le début) et non d'une tendance de consommation ; (2) le panier moyen reste entre 107 € et 119 € tous les mois, car la taille du panier et les prix ne dépendent ni du client ni du mois ; (3) la viande pèse 41 % du chiffre d'affaires en septembre 2025, contre 25 % pour viande, poisson et charcuterie dans le budget Kantar de l'ADR-12, explication probable : les poids Kantar servent de probabilités de tirage d'un article et non de part de budget, donc les écarts de prix entre rayons déplacent la part du chiffre d'affaires.
+**Décision** : ne pas régénérer les données, présenter ces écarts comme des limites du jeu de données simulé et non comme des constats sur de vrais clients.

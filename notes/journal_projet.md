@@ -84,3 +84,9 @@ Reste dans les marts : KPIs (enrichi par rayon), préparation SQL du MBA, Tendan
 ## 2026-10-06 (jointure Transactions × Produits)
 
 Avant de construire le mart KPIs, contrôle de la jointure avec le catalogue produits : 99,85 % au départ, 100 % après correction (clé de jointure numérique dans le staging). Aucune duplication de lignes.
+
+## 2026-10-06 (mart KPIs)
+
+Deux marts KPIs construits et testés : mart_kpis_mois_rayon (377 lignes, mois × rayon) et mart_kpis_mois (13 lignes, panier moyen, chiffre d'affaires par client et par jour, indicateur de mois partiel). 10 tests dbt passent, dont un test qui vérifie que les deux marts donnent le même chiffre d'affaires par mois. Constat sur le générateur : la hausse des transactions (de 8 733 en octobre 2025 à 22 549 en août 2026) vient du biais de dates des profils, pas d'une tendance de consommation.
+
+Reste dans les marts : préparation SQL du MBA, Tendances (Transactions × INSEE).
