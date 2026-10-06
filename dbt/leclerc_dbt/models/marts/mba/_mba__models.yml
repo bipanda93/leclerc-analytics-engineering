@@ -1,0 +1,46 @@
+version: 2
+
+models:
+  - name: mart_mba_paniers
+    description: "Une ligne par panier et par article repéré (19 articles construits sur les mots-clés des règles d'affinité du générateur). Sert d'entrée au calcul des règles d'association à l'étape ML."
+    columns:
+      - name: transaction_id
+        data_tests:
+          - not_null
+      - name: item
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values:
+                  - 'pates'
+                  - 'sauce_tomate'
+                  - 'cafe'
+                  - 'sucre'
+                  - 'biscuit'
+                  - 'apero_sale'
+                  - 'biere'
+                  - 'soda'
+                  - 'jus'
+                  - 'pain'
+                  - 'confiture'
+                  - 'beurre'
+                  - 'fromage'
+                  - 'grillades'
+                  - 'ketchup'
+                  - 'moutarde'
+                  - 'sauce_barbecue'
+                  - 'the'
+                  - 'chocolat'
+  - name: mart_mba_regles
+    description: "Une ligne par paire ordonnée d'articles (A vers B) : support, confiance et lift calculés sur tous les paniers. Le support se calcule sur l'ensemble des transactions, y compris celles sans aucun des articles suivis."
+    columns:
+      - name: item_a
+        data_tests:
+          - not_null
+      - name: item_b
+        data_tests:
+          - not_null
+      - name: lift
+        data_tests:
+          - not_null
