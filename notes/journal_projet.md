@@ -90,3 +90,9 @@ Avant de construire le mart KPIs, contrôle de la jointure avec le catalogue pro
 Deux marts KPIs construits et testés : mart_kpis_mois_rayon (377 lignes, mois × rayon) et mart_kpis_mois (13 lignes, panier moyen, chiffre d'affaires par client et par jour, indicateur de mois partiel). 10 tests dbt passent, dont un test qui vérifie que les deux marts donnent le même chiffre d'affaires par mois. Constat sur le générateur : la hausse des transactions (de 8 733 en octobre 2025 à 22 549 en août 2026) vient du biais de dates des profils, pas d'une tendance de consommation.
 
 Reste dans les marts : préparation SQL du MBA, Tendances (Transactions × INSEE).
+
+## 2026-10-06 (mart Tendances)
+
+Mart gold.mart_tendances_jour construit et testé : 365 jours (du 23 septembre 2025 au 22 septembre 2026), chiffre d'affaires, transactions, panier moyen et IPC alimentation INSEE du mois. 343 jours ont un indice, les 22 de septembre 2026 n'en ont pas (non encore publié par l'INSEE) et restent vides. 5 tests dbt passent, dont un test qui vérifie qu'un indice manquant ne concerne que des mois postérieurs à la dernière publication.
+
+Reste dans les marts : préparation SQL du MBA.

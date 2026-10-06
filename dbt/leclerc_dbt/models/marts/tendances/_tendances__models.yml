@@ -1,0 +1,16 @@
+version: 2
+
+models:
+  - name: mart_tendances_jour
+    description: "Une ligne par jour : chiffre d'affaires, transactions, panier moyen et IPC alimentation du mois correspondant. L'IPC est vide pour les jours postérieurs au dernier mois publié par l'INSEE."
+    columns:
+      - name: jour
+        data_tests:
+          - unique
+          - not_null
+      - name: chiffre_affaires
+        data_tests:
+          - not_null
+      - name: panier_moyen
+        data_tests:
+          - not_null
