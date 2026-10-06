@@ -72,3 +72,11 @@ Les 4 modèles staging créés et validés : stg_openfoodfacts__products (578 08
 RBAC complété : GRANT SELECT ON FUTURE TABLES/VIEWS posé sur BRONZE et SILVER pour ACCOUNTADMIN, pour ne plus revivre l'incident d'accès manquant à chaque nouvel objet créé.
 
 dbt run complet validé (4/4 modèles, exécution parallèle ~4s). Prochaine étape : modèles intermediate (jointures entre sources), puis les marts (RFM, MBA, KPIs, Tendances).
+
+## 2026-10-05 / 2026-10-06 (mart RFM)
+
+Premier mart construit : gold.mart_rfm_customers, 10 000 clients, calculé avec une date de référence dérivée des données (MAX de transaction_date) plutôt que CURRENT_DATE. Les seuils ont été choisis un par un en lisant les percentiles des vraies données, avec une prédiction avant chaque requête. Constats : les extrémités du mart retrouvent les profils programmés dans le générateur ; le montant (total cumulé) recoupe presque entièrement la fréquence ; les plages d'achats du générateur ne ressemblent pas à des clients de supermarché, d'où le renommage des groupes de fréquence par volume (faible/moyenne/élevée) plutôt qu'une régénération des données.
+
+Cinq segments définis (achats nombreux/moyens/faibles, actifs ou partis), colonne segment ajoutée au mart avec un else 'non classé' défensif. 10 tests dbt passent.
+
+Reste dans les marts : KPIs (enrichi par rayon), préparation SQL du MBA, Tendances (Transactions + INSEE).

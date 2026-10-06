@@ -186,3 +186,27 @@ chaque source, pas à une préférence arbitraire.
 
 **Contexte** : deux incidents distincts (22 et 23 septembre) où ACCOUNTADMIN n'avait pas accès à une table fraîchement créée par LECLERC_AIRBYTE_LOADER ou LECLERC_DBT_TRANSFORMER — Snowflake n'accorde jamais d'accès automatique aux objets créés par un autre rôle.
 **Décision** : `GRANT SELECT ON FUTURE TABLES/VIEWS IN SCHEMA` posé sur BRONZE et SILVER pour ACCOUNTADMIN, couvrant tout objet futur peu importe le rôle créateur — résout la classe d'incident pour de bon, pas juste l'occurrence ponctuelle.
+
+## ADR-22 — Récence calculée par rapport à MAX(transaction_date), pas CURRENT_DATE
+
+**Contexte** : les transactions sont générées une seule fois et ne changent plus. Avec CURRENT_DATE, la récence de chaque client augmenterait chaque jour sans qu'aucune donnée n'ait bougé.
+**Décision** : date de référence = la date la plus récente de toute la table (une seule valeur pour tous les clients). Un maximum par client donnerait une récence de 0 à tous.
+**Conséquence** : le mart est reproductible, ses résultats ne dépendent pas du jour d'exécution.
+
+## ADR-23 — Seuils RFM fixes, groupes de fréquence nommés par volume
+
+**Décision** : seuils fixes plutôt qu'un classement en pourcentages, pour la lisibilité métier (récence : moins de 30 jours = récent, plus de 60 = parti ; fréquence : 5 achats ou moins, 6 à 20, plus de 20 ; montant : moins de 500 €, moins de 4 000 €, 4 000 € et plus). Les groupes de fréquence s'appellent faible, moyenne et élevée.
+**Limite assumée** : les seuils sont liés à l'échelle de ce jeu de données. Les plages d'achats du générateur (régulier : 8 à 20 par an) ne ressemblent pas à des clients de supermarché : plus de 8 Français sur 10 font leurs courses chaque semaine (sondage Ipsos 2023). Avec une définition réaliste (2 achats par mois = occasionnel, 1 par semaine = régulier), 89,7 % des clients deviendraient occasionnels et le groupe régulier n'en compterait que 1,7 %.
+**Décision sur la limite** : ne pas régénérer les données (coût de revalidation trop élevé avant la soutenance), nommer les groupes par volume plutôt que par comportement.
+**Autre constat** : le montant est un total cumulé et suit le nombre d'achats ; les 1 035 clients « gros » sont exactement les 1 035 fréquence « élevée ». La segmentation repose donc sur la récence et la fréquence. Le panier moyen est traité dans le mart KPIs.
+
+## ADR-24 — Cinq segments clients, avec else défensif et tests
+
+**Décision** : sept cases récence × fréquence regroupées en cinq segments : Achats nombreux actifs (1 035), Achats moyens actifs (5 331), Achats moyens partis (584), Achats faibles actifs (508), Achats faibles partis (2 542). Les clients « entre deux » sont rattachés aux actifs. Un else 'non classé' évite qu'une combinaison imprévue donne un NULL silencieux.
+**Tests** : not_null et accepted_values sur segment, sans 'non classé' dans la liste autorisée, pour qu'une combinaison imprévue fasse échouer le test.
+
+## ADR-25 — Schéma GOLD via la macro generate_schema_name
+
+**Contexte** : par défaut, dbt colle le schéma de la connexion devant le schéma demandé (SILVER_gold au lieu de GOLD).
+**Décision** : macro generate_schema_name qui utilise le nom personnalisé tel quel, et le schéma par défaut sinon.
+**Droits** : GRANT SELECT ON FUTURE TABLES/VIEWS posé au niveau de la base LECLERC pour ACCOUNTADMIN (étend l'ADR-21 à tout futur schéma).

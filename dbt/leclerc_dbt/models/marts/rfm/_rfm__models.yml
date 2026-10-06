@@ -39,3 +39,15 @@ models:
           - accepted_values:
               arguments:
                 values: ['petit', 'moyen', 'gros']
+      - name: segment
+        description: "Segment client issu du croisement récence et fréquence (5 segments)."
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values:
+                  - 'Achats nombreux, actifs'
+                  - 'Achats moyens, actifs'
+                  - 'Achats moyens, partis'
+                  - 'Achats faibles, actifs'
+                  - 'Achats faibles, partis'
