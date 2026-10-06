@@ -96,3 +96,7 @@ Reste dans les marts : préparation SQL du MBA, Tendances (Transactions × INSEE
 Mart gold.mart_tendances_jour construit et testé : 365 jours (du 23 septembre 2025 au 22 septembre 2026), chiffre d'affaires, transactions, panier moyen et IPC alimentation INSEE du mois. 343 jours ont un indice, les 22 de septembre 2026 n'en ont pas (non encore publié par l'INSEE) et restent vides. 5 tests dbt passent, dont un test qui vérifie qu'un indice manquant ne concerne que des mois postérieurs à la dernière publication.
 
 Reste dans les marts : préparation SQL du MBA.
+
+## 2026-10-06 (marts MBA, fin des marts)
+
+Marts MBA construits et testés : mart_mba_paniers (270 830 lignes, 19 articles repérés par les mêmes mots-clés que les règles d'affinité du générateur) et mart_mba_regles (342 paires ordonnées avec support, confiance et lift, calculés en SQL). Parmi les 8 paires distinctes de plus fort lift (au moins 100 paniers), 5 sont des règles du générateur (lift de 10,6 à 19,0) et 3 sont des associations indirectes par cause commune. Les quatre marts (RFM, KPIs, Tendances, MBA) sont terminés. Reste : ML, Airflow, CI/CD, restitution.
