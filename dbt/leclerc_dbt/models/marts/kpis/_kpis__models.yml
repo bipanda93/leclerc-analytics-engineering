@@ -1,0 +1,28 @@
+version: 2
+
+models:
+  - name: mart_kpis_mois_rayon
+    description: "Chiffre d'affaires, quantités et clients par mois et par rayon. Ne pas additionner nb_transactions_rayon entre rayons : un panier multi-rayons est compté dans chacun."
+    columns:
+      - name: mois
+        data_tests:
+          - not_null
+      - name: rayon
+        data_tests:
+          - not_null
+      - name: chiffre_affaires
+        data_tests:
+          - not_null
+  - name: mart_kpis_mois
+    description: "Indicateurs globaux par mois, avec le panier moyen calculé sur les vraies transactions. mois_partiel signale les mois dont tous les jours ne sont pas couverts."
+    columns:
+      - name: mois
+        data_tests:
+          - unique
+          - not_null
+      - name: nb_transactions
+        data_tests:
+          - not_null
+      - name: panier_moyen
+        data_tests:
+          - not_null

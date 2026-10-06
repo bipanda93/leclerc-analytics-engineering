@@ -20,3 +20,9 @@ Erreur de parsing ligne 5 : bloc de colonne sans la ligne `columns:` au-dessus, 
 
 ## 584 codes produits introuvables dans la jointure Transactions × Produits
 Le contrôle de jointure donnait 99,85 % : 2 284 lignes de transactions (584 codes distincts) sans rayon. Les produits existaient toujours dans Bronze, mais le même nombre s'écrit différemment en texte côté Python (entier complet) et côté Snowflake (conversion du FLOAT). Ces codes font de 16 à 28 chiffres, ce ne sont pas de vrais codes-barres. Ma première correction (convertir en NUMBER(38,0)) a échoué : au moins un code dépasse 38 chiffres, ce qui aurait aussi fait planter le dbt run. Fix retenu : comparer en nombre flottant (voir ADR-26).
+
+## ref() inutilisable dans Snowsight
+Une requête de mart copiée dans Snowsight avec ref() et des noms de tables sans base ni schéma ne peut pas s'exécuter : ref() n'existe que dans dbt. Fix : noms complets (LECLERC.SILVER...) pour tester, ref() uniquement dans les fichiers dbt.
+
+## nb_transactions_rayon : une somme qui ne veut rien dire
+Dans le mart par mois et par rayon, la somme des transactions de chaque rayon donne environ 5,9 fois le vrai nombre de transactions du mois, car un panier touche en moyenne près de 6 rayons. Le panier moyen global ne peut donc pas se déduire de ce mart. Fix : second mart, au grain d'un mois, qui compte les vraies transactions.
