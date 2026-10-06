@@ -1,0 +1,41 @@
+version: 2
+
+models:
+  - name: mart_rfm_customers
+    description: "Une ligne par client : récence, fréquence, montant et groupes associés."
+    columns:
+      - name: customer_id
+        description: "Identifiant du client."
+        data_tests:
+          - unique
+          - not_null
+      - name: recency
+        description: "Jours écoulés entre le dernier achat et la date la plus récente de la table."
+        data_tests:
+          - not_null
+      - name: frequency
+        description: "Nombre de transactions distinctes du client."
+        data_tests:
+          - not_null
+      - name: monetary
+        description: "Montant total dépensé par le client, en euros."
+        data_tests:
+          - not_null
+      - name: groupe_recence
+        description: "Récent (moins de 30 jours), entre deux (30 à 60), parti (plus de 60)."
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ['récent', 'entre deux', 'parti']
+      - name: groupe_frequence
+        description: "Faible (5 achats ou moins), moyenne (6 à 20), élevée (plus de 20)."
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ['faible', 'moyenne', 'élevée']
+      - name: groupe_montant
+        description: "Petit (moins de 500 euros), moyen (500 à moins de 4000), gros (4000 et plus)."
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ['petit', 'moyen', 'gros']
