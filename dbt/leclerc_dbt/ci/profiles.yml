@@ -1,0 +1,13 @@
+leclerc_dbt:
+  outputs:
+    ci:
+      account: "{{ env_var('SNOWFLAKE_ACCOUNT') }}"
+      database: "{{ env_var('SNOWFLAKE_DATABASE') }}"
+      role: "{{ env_var('SNOWFLAKE_ROLE') }}"
+      schema: CI_PR
+      threads: 4
+      type: snowflake
+      user: "{{ env_var('SNOWFLAKE_DBT_USER') }}"
+      password: "{{ env_var('SNOWFLAKE_DBT_PASSWORD') }}"
+      warehouse: "{{ env_var('SNOWFLAKE_WAREHOUSE') }}"
+  target: ci
