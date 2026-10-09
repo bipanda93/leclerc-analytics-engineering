@@ -16,3 +16,6 @@ logs/
 data/
 .user.yml
 .user.yml
+airflow/logs/
+airflow/.env
+airflow/config/airflow.cfg
