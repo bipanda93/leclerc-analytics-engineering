@@ -1,0 +1,30 @@
+name: Airflow CI
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "airflow/**"
+      - ".github/workflows/airflow-ci.yml"
+
+jobs:
+  dag-tests:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Récupérer le code
+        uses: actions/checkout@v4
+
+      - name: Installer Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Installer Airflow
+        run: >
+          pip install "apache-airflow==3.3.2" apache-airflow-providers-standard pytest
+          --constraint "https://raw.githubusercontent.com/apache/airflow/constraints-3.3.2/constraints-3.12.txt"
+
+      - name: Tester le DAG
+        run: pytest airflow/tests -v
