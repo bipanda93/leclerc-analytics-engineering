@@ -43,4 +43,4 @@ with DAG(
         bash_command=f"{VENV}/python {PROJET}/ingestion/export_gold.py",
     )
 
-    extract_insee >> dbt_build_silver >> dbt_build_gold >> export_gold
+    extract_insee >> dbt_build_gold >> dbt_build_silver >> export_gold
