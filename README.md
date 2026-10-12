@@ -1,8 +1,9 @@
 # Leclerc Analytics Engineering
 
 [![dbt CI](https://github.com/bipanda93/leclerc-analytics-engineering/actions/workflows/dbt-ci.yml/badge.svg)](https://github.com/bipanda93/leclerc-analytics-engineering/actions/workflows/dbt-ci.yml)
+[![Airflow CI](https://github.com/bipanda93/leclerc-analytics-engineering/actions/workflows/airflow-ci.yml/badge.svg)](https://github.com/bipanda93/leclerc-analytics-engineering/actions/workflows/airflow-ci.yml)
 
-Pipeline ELT de bout en bout simulant l'environnement data d'un distributeur français : ingestion de sources ouvertes, entrepôt Snowflake, transformations dbt en architecture Bronze / Silver / Gold, marts orientés métier (segmentation client, indicateurs de vente, tendances, analyse de panier), orchestration Airflow et intégration continue.
+Pipeline ELT de bout en bout simulant l'environnement data d'un distributeur français : ingestion de sources ouvertes, entrepôt Snowflake, transformations dbt en architecture Bronze / Silver / Gold, marts orientés métier (segmentation client, indicateurs de vente, tendances, analyse de panier), orchestration Airflow avec alertes Slack et intégration continue.
 
 > **Les transactions sont synthétiques.** Leclerc n'expose aucune API publique : les transactions sont générées par un script Python qui reprend des statistiques de consommation françaises. Les écarts que cela crée sont documentés dans [`docs/decisions_architecture.md`](docs/decisions_architecture.md).
 
@@ -22,6 +23,7 @@ flowchart LR
     AF -.-> SI
     AF -.-> GO
     AF -.-> CSV
+    AF -.échec.-> SL[Slack<br/>#alertes_airflow]
 ```
 
 ## Sources
@@ -43,13 +45,14 @@ flowchart LR
   - `mart_kpis_mois_rayon` et `mart_kpis_mois` : chiffre d'affaires, panier moyen, part des rayons ;
   - `mart_tendances_jour` : ventes journalières et indice INSEE, entrée prévue pour la prévision ;
   - `mart_mba_paniers` et `mart_mba_regles` : support, confiance et lift de paires d'articles, calculés en SQL.
-- **Intégration continue** : GitHub Actions lance `dbt build` à chaque pull request, dans un schéma Snowflake isolé (`CI_PR`).
+- **Intégration continue** : à chaque pull request, GitHub Actions lance `dbt build` dans un schéma Snowflake isolé (`CI_PR`) et des tests pytest sur le DAG (chargement, tâches, ordre, relances).
 - **Orchestration** : un DAG Airflow 3 quotidien enchaîne l'extraction INSEE, la reconstruction de Silver puis de Gold, et l'export des tables en CSV. Un test en échec bloque la couche Gold.
-- **Registre de décisions** : 33 décisions d'architecture avec leur contexte et leurs limites, dans `docs/decisions_architecture.md`. Le journal et les incidents rencontrés sont dans `notes/`.
+- **Alertes** : notification Slack automatique à chaque échec de tâche Airflow (DAG, tâche, tentative, lien vers les logs), après une relance.
+- **Registre de décisions** : 34 décisions d'architecture avec leur contexte et leurs limites, dans `docs/decisions_architecture.md`. Le journal et les incidents rencontrés sont dans `notes/`.
 
 ## Orchestration
 
-Le pipeline tourne chaque jour à 6 h (heure de Paris) sous Airflow 3, avec Docker Compose et le LocalExecutor. dbt et les scripts tournent dans un environnement virtuel séparé de celui d'Airflow.
+Le pipeline tourne chaque jour à 6 h (heure de Paris) sous Airflow 3, avec Docker Compose et le LocalExecutor. dbt et les scripts tournent dans un environnement virtuel séparé de celui d'Airflow. Chaque tâche est relancée une fois en cas d'échec ; si la relance échoue aussi, un message est envoyé sur Slack.
 
 ![DAG leclerc_daily](docs/images/airflow_dag_leclerc_daily.png)
 
@@ -67,8 +70,8 @@ Le pipeline tourne chaque jour à 6 h (heure de Paris) sous Airflow 3, avec Dock
 ingestion/            scripts Python (transactions, INSEE, export Gold, connexion Snowflake)
 snowflake/            droits (RBAC) et requêtes d'exploration
 dbt/leclerc_dbt/      modèles staging et marts, macros, tests, profil de CI
-airflow/              DAG, image Docker et profil dbt de production
-.github/workflows/    CI : dbt build à chaque pull request
+airflow/              DAG, alertes Slack, tests du DAG, image Docker et profil dbt de production
+.github/workflows/    CI : dbt build et tests du DAG à chaque pull request
 docs/                 décisions d'architecture, segments RFM, captures
 notes/                journal de projet et incidents
 ```
@@ -93,7 +96,7 @@ dbt build
 
 # 4. Ou laisser Airflow orchestrer INSEE, dbt et l'export chaque jour
 cd ../../airflow
-echo "AIRFLOW_UID=$(id -u)" > .env
+cp .env.example .env    # puis renseigner AIRFLOW_UID, FERNET_KEY et SLACK_WEBHOOK_URL (optionnel)
 docker compose up -d    # interface sur http://localhost:8080
 ```
 
@@ -104,4 +107,4 @@ docker compose up -d    # interface sur http://localhost:8080
 
 ## Stack
 
-Python, SQL, Airbyte, Snowflake (Azure), dbt, Airflow, Docker, GitHub Actions, Git.
+Python, SQL, Airbyte, Snowflake (Azure), dbt, Airflow, Slack, Docker, GitHub Actions, Git.

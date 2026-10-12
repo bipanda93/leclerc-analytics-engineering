@@ -262,3 +262,24 @@ chaque source, pas à une préférence arbitraire.
 **Alternatives écartées** : le CeleryExecutor, avec Redis et des workers, trop lourd pour un seul DAG sur un poste local ; l'installation de dbt dans le Python d'Airflow, exposée aux conflits de versions ; Cosmos, qui transformerait chaque modèle dbt en tâche, gardé comme évolution possible.
 **Incidents** : (1) le code du projet était d'abord monté sous /opt/airflow, et le conteneur airflow-init, qui change le propriétaire de tout ce dossier, mettait plus de quinze minutes à démarrer ; les montages ont été déplacés vers /opt/leclerc. (2) Le premier run a échoué au test assert_tendances_ipc_manquant_historique, lancé dès l'étape de staging parce qu'un de ses parents y était sélectionné, alors que le mart qu'il vérifie n'était pas encore reconstruit avec l'indice INSEE de septembre ; l'option --indirect-selection cautious réserve désormais chaque test à l'étape où tous ses parents sont construits. L'échec a bien bloqué la reconstruction de Gold, comme prévu.
 **Limites** : Airflow ne tourne que lorsque Docker est démarré sur le poste ; en production, il faudrait un orchestrateur hébergé et un exécuteur distribué.
+
+## ADR-34 — Alertes Slack et incident de fusion d'une PR en échec
+
+**Contexte** : la CI vérifie le code avant fusion, mais rien ne prévenait 
+d'un échec à l'exécution du DAG. Par ailleurs, une PR de démonstration 
+(#6, ordre Silver/Gold inversé) a été fusionnée alors qu'Airflow CI était 
+rouge.
+
+**Décision** : callback `on_failure_callback` qui envoie un message Slack 
+via Incoming Webhook (URL dans `airflow/.env`, jamais commitée), déclenché 
+après la relance. L'incident #6 a été corrigé par un `git revert -m 1` 
+passé lui-même par une PR validée par la CI, sans modifier `main` 
+directement.
+
+**Alternatives écartées** : alertes e-mail SMTP d'Airflow (configuration 
+plus lourde) ; correction directe sur `main` (contourne la CI).
+
+**Limites** : sur un dépôt privé avec un compte GitHub gratuit, les règles 
+de protection de branche ne sont pas appliquées, donc une PR rouge reste 
+fusionnable. Une règle exigeant les checks verts sera activée au passage 
+du dépôt en public.
