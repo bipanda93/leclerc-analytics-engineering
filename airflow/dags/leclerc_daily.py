@@ -4,6 +4,7 @@ from datetime import timedelta
 import pendulum
 from airflow.providers.standard.operators.bash import BashOperator
 from airflow.sdk import DAG
+from alertes import alerte_slack
 
 VENV = "/opt/leclerc_venv/bin"
 PROJET = "/opt/leclerc"
@@ -18,7 +19,7 @@ with DAG(
     schedule="0 6 * * *",
     start_date=pendulum.datetime(2026, 10, 1, tz="Europe/Paris"),
     catchup=False,
-    default_args={"retries": 1, "retry_delay": timedelta(minutes=5)},
+    default_args={"retries": 1, "retry_delay": timedelta(minutes=5), "on_failure_callback": alerte_slack},
     tags=["leclerc", "dbt", "snowflake"],
 ) as dag:
 
