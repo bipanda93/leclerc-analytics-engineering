@@ -1,8 +1,10 @@
 """Vérifie que le DAG leclerc_daily se charge et garde sa structure."""
 import runpy
+import sys
 from pathlib import Path
 
 DAG_FILE = Path(__file__).resolve().parent.parent / "dags" / "leclerc_daily.py"
+sys.path.insert(0, str(DAG_FILE.parent))
 
 
 def charger_dag():
