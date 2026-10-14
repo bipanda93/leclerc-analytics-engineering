@@ -26,11 +26,16 @@ with DAG(
     extract_insee = BashOperator(
         task_id="extract_insee",
         bash_command=f"{VENV}/python {PROJET}/ingestion/insee_conjoncture_extract.py",
+        retries=3,
+        retry_delay=timedelta(minutes=5),
+        retry_exponential_backoff=True,
     )
 
     dbt_build_silver = BashOperator(
         task_id="dbt_build_silver",
         bash_command=f"{DBT} --select path:models/staging",
+        # L'IPC est mensuel : une panne INSEE ne bloque pas Silver ni Gold (ADR-35).
+        trigger_rule="all_done",
     )
 
     dbt_build_gold = BashOperator(

@@ -283,3 +283,13 @@ plus lourde) ; correction directe sur `main` (contourne la CI).
 de protection de branche ne sont pas appliquées, donc une PR rouge reste 
 fusionnable. Une règle exigeant les checks verts sera activée au passage 
 du dépôt en public.
+
+## ADR-35 — Source externe mensuelle non bloquante
+
+**Contexte** : le DAG leclerc_daily a échoué sur la tâche extract_insee parce que l'API INSEE (bdm.insee.fr) renvoyait une erreur 500 côté serveur. Comme extract_insee précédait dbt_build_silver, cette panne extérieure bloquait toute la reconstruction quotidienne de Silver et Gold, alors que l'IPC n'est publié qu'une fois par mois. Par ailleurs, l'appel requests n'avait pas de timeout et pouvait rester bloqué indéfiniment.
+
+**Décision** : extract_insee reçoit 3 relances avec retry_exponential_backoff=True et un délai de départ de 5 minutes (environ 5, 10 puis 20 minutes), pour absorber une panne passagère. dbt_build_silver passe en trigger_rule="all_done" : il démarre une fois extract_insee terminé, quel que soit son état, et Silver et Gold sont reconstruits avec le dernier indice INSEE déjà chargé dans Bronze. La table Bronze n'est pas touchée en cas d'échec, car l'appel à l'API a lieu avant le CREATE OR REPLACE TABLE. L'appel requests a désormais un timeout de 30 secondes. L'alerte Slack de l'ADR-34 continue de signaler l'échec d'extract_insee après la dernière relance. Un test pytest vérifie les relances et le trigger_rule.
+
+**Alternatives écartées** : sortir extract_insee du DAG quotidien dans un DAG mensuel, plus juste sur le fond mais qui ajoute un second DAG à maintenir pour une seule source ; un trigger_rule="none_failed", qui bloquerait Silver comme aujourd'hui ; une tâche qui avale l'erreur, qui masquerait la panne au lieu de la signaler.
+
+**Limites** : all_done laisse aussi passer un extract_insee en échec pour une autre raison qu'une panne INSEE (bug dans le script, identifiants Snowflake), seule l'alerte Slack le révèle. Le run du DAG apparaît en succès dans Airflow dès qu'export_gold réussit, même si extract_insee a échoué. Les relances retardent Silver et Gold d'environ 35 minutes au pire. Si l'indice d'un nouveau mois n'a pas pu être chargé, les marts restent sur le mois précédent jusqu'au prochain run réussi.

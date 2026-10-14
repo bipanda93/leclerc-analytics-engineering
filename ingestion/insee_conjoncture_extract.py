@@ -6,10 +6,11 @@ from snowflake_utils import get_connection, SNOWFLAKE_DATABASE, SNOWFLAKE_SCHEMA
 
 INSEE_URL = "https://bdm.insee.fr/series/sdmx/data/SERIES_BDM/011813717"
 INSEE_TABLE = "INSEE_CONJONCTURE"
+INSEE_TIMEOUT = 30  # secondes
 
 
 def fetch_insee_series():
-    response = requests.get(INSEE_URL)
+    response = requests.get(INSEE_URL, timeout=INSEE_TIMEOUT)
     response.raise_for_status()
 
     root = ET.fromstring(response.text)
