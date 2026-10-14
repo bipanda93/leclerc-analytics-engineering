@@ -1,6 +1,7 @@
 """Vérifie que le DAG leclerc_daily se charge et garde sa structure."""
 import runpy
 import sys
+from datetime import timedelta
 from pathlib import Path
 
 DAG_FILE = Path(__file__).resolve().parent.parent / "dags" / "leclerc_daily.py"
@@ -34,3 +35,12 @@ def test_pas_de_rattrapage_et_relances():
     dag = charger_dag()
     assert dag.catchup is False
     assert dag.default_args["retries"] >= 1
+
+
+def test_insee_non_bloquant():
+    dag = charger_dag()
+    extract_insee = dag.get_task("extract_insee")
+    assert extract_insee.retries == 3
+    assert extract_insee.retry_exponential_backoff
+    assert extract_insee.retry_delay == timedelta(minutes=5)
+    assert dag.get_task("dbt_build_silver").trigger_rule == "all_done"
