@@ -100,3 +100,66 @@ Reste dans les marts : préparation SQL du MBA.
 ## 2026-10-06 (marts MBA, fin des marts)
 
 Marts MBA construits et testés : mart_mba_paniers (270 830 lignes, 19 articles repérés par les mêmes mots-clés que les règles d'affinité du générateur) et mart_mba_regles (342 paires ordonnées avec support, confiance et lift, calculés en SQL). Parmi les 8 paires distinctes de plus fort lift (au moins 100 paniers), 5 sont des règles du générateur (lift de 10,6 à 19,0) et 3 sont des associations indirectes par cause commune. Les quatre marts (RFM, KPIs, Tendances, MBA) sont terminés. Reste : ML, Airflow, CI/CD, restitution.
+## 2026-10-14 → 2026-10-19 (restitution Power BI)
+
+### Ce qui a été construit
+
+- Chargement des CSV Gold dans Power BI, modèle en étoile (ADR-36), table `_Mesures`.
+- Thème du rapport (`restitution/powerbi/leclerc_theme.json`), menu latéral, navigateur de pages et 7 icônes Tabler (`restitution/powerbi/icones/`).
+- **Vue d'ensemble** : 4 KPI avec badge d'évolution ▲/▼ coloré et valeur du mois précédent, CA par rayon, écart à la moyenne des rayons (4 meilleurs, 4 moins bons), tableau détaillé par rayon.
+- **Rayons** : matrice rayons × mois en dégradé sur les 6 derniers mois complets, courbe du rayon sélectionné comparée à la médiane, croissance sur 6 mois, KPI du dernier mois complet.
+- **Clients RFM** : KPI (10 000 clients, 10 % de gros acheteurs actifs qui font 49 % du CA, 6 % de clients moyens partis), clients par segment, nuage récence × montant, profil moyen par segment.
+- **Panier** : 4 KPI (342 règles, lift maximum 19, confiance moyenne 13 %, 31 paires fortes), top 8 des paires par lift, nuage support × confiance coloré par force du lift, tableau des règles, segment par niveau de force (ADR-43).
+- **Tendances** : CA des 30 derniers jours, CA moyen par jour, meilleur jour, évolution de l'IPC ; CA journalier avec moyenne mobile 7 jours ; CA moyen par jour de semaine ; ventes et IPC en base 100 (ADR-44).
+- Reste à faire : captures des pages dans le README, pull request de `feat/powerbi` vers `main`.
+
+### Incidents et corrections
+
+**Montants lus comme du texte.** `CHIFFRE_AFFAIRES` utilisait le point comme séparateur décimal. Avec les paramètres régionaux français, Power Query l'a typé en texte.
+Correction : changement de type avec les paramètres régionaux « Anglais (États-Unis) ». Les colonnes `MOIS` et `QUANTITE` ont perdu leur type au passage et ont été retypées.
+
+**`mart_mba_paniers` lu en `Column1`, `Column2`.** Encodage et en-têtes mal détectés.
+Correction : encodage UTF-8 forcé et « Utiliser la première ligne pour les en-têtes ». La table est au format long (une ligne par panier et par rayon), pas une colonne par rayon comme supposé au départ.
+
+**Mauvaises relations.** Premières relations créées sur `Dates[Mois]` (texte), certaines en plusieurs-à-plusieurs, en 1:1 ou bidirectionnelles.
+Correction : suppression et recréation à partir de `Dates[Date]`, en 1:* à sens unique (ADR-36).
+
+**Erreurs DAX de saisie.**
+- Deux mesures collées dans la même barre de formule : erreur de syntaxe. Une mesure par formule.
+- « N'est pas une expression de table valide » : la mesure avait été saisie dans la vue Requête DAX, qui attend une table. Les mesures se créent depuis la vue Rapport avec « Nouvelle mesure ».
+- Colonne `Libellé` créée comme mesure : « impossible de déterminer une valeur unique pour la colonne SEGMENT ». Une colonne calculée se crée avec « Nouvelle colonne », dans sa table.
+- Espaces dans les crochets (`[ MONETARY ]`) : colonne introuvable.
+
+**Mesures RFM vides.** `Part Champions` et `Part à risque` affichaient « -- ». Les filtres cherchaient « Champions » et « À risque », alors que dbt produit « Achats nombreux, actifs », « Achats moyens, partis »… Diagnostic par un graphique `Segments[SEGMENT]` × `Nb clients` : 5 barres différentes, donc relation correcte et noms erronés (ADR-41).
+
+**Mesures sur la mauvaise table.** Une première `Part CA Champions` utilisait `[CA]`, qui vient de `mart_kpis_mois`, sans lien avec `Segments` : le filtre de segment n'avait aucun effet. Remplacée par `CA clients = SUM ( mart_rfm_customers[MONETARY] )`.
+
+**Paires en double dans le classement par lift.** Le top 8 n'affichait que 4 paires différentes : chaque règle existe dans les deux sens et le lift est symétrique. Corrigé par la colonne `Sens unique` (ADR-43).
+
+**Semaine anormale du 23 au 28 septembre 2025.** Pic à plus de 100 K€ par jour au démarrage du générateur, repéré sur la courbe journalière puis confirmé par un tableau trié sur le CA du jour. Un premier filtre posé sur le 2 septembre (mauvaise hypothèse sur la date) ne corrigeait rien ; le tableau a donné les vraies dates. Exclusion par un filtre de page (ADR-44).
+
+**Meilleur jour : toutes les barres en couleur de mise en avant.** Le tri des jours par `Jour semaine num` ajoute un filtre sur cette colonne ; la mesure ne retirait que le filtre sur `Jour semaine` et chaque barre se croyait la meilleure. Corrigé avec `REMOVEFILTERS ( Dates[Jour semaine], Dates[Jour semaine num] )`.
+
+**IPC trompeur sur double axe.** Les courbes ventes et IPC montaient ensemble. Un tableau de diagnostic (IPC moyen, minimum, maximum par mois) a montré des données INSEE saines (+1,4 % sur un an) : l'effet venait de l'axe secondaire étiré. Passage en base 100 sur un seul axe (ADR-44).
+
+**Segment de dates oublié sur une plage réduite.** Le segment de la page Tendances est resté sur octobre → février pendant plusieurs réglages, ce qui changeait tous les KPI. Un segment de dates doit être remis sur la période complète avant d'enregistrer.
+
+**Commits sur `main`.** Les premiers commits du `.pbix` ont été faits sur `main` au lieu d'une branche.
+Correction : `git reset --soft origin/main`, `git rm --cached`, puis `git checkout -B feat/powerbi` et nouveau commit.
+
+**Push refusé (HTTP 400).** Le `.pbix` (binaire de plusieurs Mo) dépassait le tampon HTTP par défaut de Git.
+Correction : `git config http.postBuffer 524288000`.
+
+**Fichier `.pbix` supprimé.** Une ancienne version, placée par erreur dans le dossier Gold, a été supprimée avec `rm` sans vérifier son contenu. La version de travail était intacte dans `powerbi/` et a été déplacée dans `restitution/powerbi/`.
+
+**Terminal bloqué en `dquote>`.** Un commentaire `# vérifier qu'on est…` collé dans zsh : les commentaires ne sont pas actifs en mode interactif, et l'apostrophe a ouvert une chaîne. `Ctrl+C`, puis les commandes une par une sans commentaire.
+
+### Leçons
+
+- Vérifier le type de chaque colonne juste après le chargement, avant de construire quoi que ce soit dessus.
+- Avant d'écrire un filtre sur du texte, afficher les valeurs réelles de la colonne.
+- Une mesure ne peut filtrer qu'à travers les relations du modèle : vérifier de quelle table vient chaque mesure.
+- Sauvegarder souvent, et ne jamais supprimer un fichier sans avoir vérifié qu'il existe une autre copie.
+- Avant de corriger une anomalie, la localiser précisément (date, valeur) avec un tableau de diagnostic plutôt que de supposer.
+- Un graphique à deux axes compare des formes, pas des ampleurs : pour comparer deux séries d'unités différentes, les ramener en base 100.
+- Le `.pbix` est un binaire : Git ne montre aucune différence entre deux versions. Le format projet Power BI (PBIP), qui enregistre le modèle et les pages en texte, serait plus adapté au suivi de version.

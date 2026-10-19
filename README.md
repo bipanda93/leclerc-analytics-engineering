@@ -48,7 +48,8 @@ flowchart LR
 - **Intégration continue** : à chaque pull request, GitHub Actions lance `dbt build` dans un schéma Snowflake isolé (`CI_PR`) et des tests pytest sur le DAG (chargement, tâches, ordre, relances).
 - **Orchestration** : un DAG Airflow 3 quotidien enchaîne l'extraction INSEE, la reconstruction de Silver puis de Gold, et l'export des tables en CSV. Un test en échec bloque la couche Gold.
 - **Alertes** : notification Slack automatique à chaque échec de tâche Airflow (DAG, tâche, tentative, lien vers les logs), après une relance.
-- **Registre de décisions** : 34 décisions d'architecture avec leur contexte et leurs limites, dans `docs/decisions_architecture.md`. Le journal et les incidents rencontrés sont dans `notes/`.
+- **Restitution Power BI** : modèle en étoile (table de dates, dimensions rayons et segments, mesures DAX regroupées), cinq pages : vue d'ensemble, rayons, clients RFM, panier, tendances. Les mois incomplets sont masqués par une mesure, les comparaisons entre rayons utilisent la médiane. Fichier : `restitution/powerbi/leclerc_dashboards.pbix`.
+- **Registre de décisions** : 44 décisions d'architecture avec leur contexte et leurs limites, dans `docs/decisions_architecture.md`. Le journal et les incidents rencontrés sont dans `notes/`.
 
 ## Orchestration
 
@@ -63,6 +64,8 @@ Le pipeline tourne chaque jour à 6 h (heure de Paris) sous Airflow 3, avec Dock
 - Les prix simulés ne dépendent pas de la date : l'indice INSEE n'explique pas les ventes.
 - Les codes-barres sont stockés en nombre à virgule côté Bronze, donc exacts seulement sur 15 à 17 chiffres.
 - Airflow tourne en local : il ne s'exécute que lorsque Docker est démarré.
+- La première semaine de transactions (23 au 28 septembre 2025) est anormalement élevée (plus de 100 K€ par jour contre environ 35 K€ ensuite) : elle est exclue de la page Tendances.
+- Les lifts des règles d'association (jusqu'à 19) et l'absence d'effet du jour de la semaine viennent du générateur, pas d'un comportement d'achat réel.
 
 ## Organisation du dépôt
 
@@ -73,6 +76,7 @@ dbt/leclerc_dbt/      modèles staging et marts, macros, tests, profil de CI
 airflow/              DAG, alertes Slack, tests du DAG, image Docker et profil dbt de production
 .github/workflows/    CI : dbt build et tests du DAG à chaque pull request
 docs/                 décisions d'architecture, segments RFM, captures
+restitution/powerbi/  rapport Power BI, thème et icônes
 notes/                journal de projet et incidents
 ```
 
@@ -103,8 +107,9 @@ docker compose up -d    # interface sur http://localhost:8080
 ## Reste à faire
 
 - Modèles de prévision (Prophet pour la demande, XGBoost pour les promotions)
-- Restitution : Power BI et Streamlit
+- Captures des cinq pages Power BI dans le README
+- Restitution Streamlit
 
 ## Stack
 
-Python, SQL, Airbyte, Snowflake (Azure), dbt, Airflow, Slack, Docker, GitHub Actions, Git.
+Python, SQL, Airbyte, Snowflake (Azure), dbt, Airflow, Power BI, Slack, Docker, GitHub Actions, Git.
