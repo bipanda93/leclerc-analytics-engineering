@@ -293,3 +293,165 @@ du dépôt en public.
 **Alternatives écartées** : sortir extract_insee du DAG quotidien dans un DAG mensuel, plus juste sur le fond mais qui ajoute un second DAG à maintenir pour une seule source ; un trigger_rule="none_failed", qui bloquerait Silver comme aujourd'hui ; une tâche qui avale l'erreur, qui masquerait la panne au lieu de la signaler.
 
 **Limites** : all_done laisse aussi passer un extract_insee en échec pour une autre raison qu'une panne INSEE (bug dans le script, identifiants Snowflake), seule l'alerte Slack le révèle. Le run du DAG apparaît en succès dans Airflow dès qu'export_gold réussit, même si extract_insee a échoué. Les relances retardent Silver et Gold d'environ 35 minutes au pire. Si l'indice d'un nouveau mois n'a pas pu être chargé, les marts restent sur le mois précédent jusqu'au prochain run réussi.
+## ADR-36 — Modèle sémantique Power BI en étoile
+
+**Date** : 2026-10-19
+**Statut** : acceptée
+
+**Contexte.** Les tables Gold sont exportées en CSV et chargées dans Power BI. Sans modèle, chaque visuel dépend d'une table isolée, les filtres ne se propagent pas d'une table à l'autre et les mêmes calculs sont refaits à plusieurs endroits.
+
+**Décision.** Un modèle en étoile :
+- une table de dates `Dates` générée en DAX (`CALENDAR` sur septembre 2025 → septembre 2026), avec mois, début de mois et jour de semaine ;
+- deux dimensions : `Rayons` (29 rayons) et `Segments` (5 segments RFM) ;
+- des relations 1:* à sens unique : `Dates[Date]` vers `mart_kpis_mois[MOIS]`, `mart_kpis_mois_rayon[MOIS]` et `mart_tendances_jour[JOUR]` ; `Rayons[RAYON]` vers `mart_kpis_mois_rayon[RAYON]` ; `Segments[SEGMENT]` vers `mart_rfm_customers[SEGMENT]` ;
+- toutes les mesures regroupées dans une table `_Mesures`.
+
+Les tables `mart_mba_paniers` et `mart_mba_regles` restent sans relation : elles portent sur des paires de rayons calculées sur toute la période et ne dépendent ni d'une date ni d'un client.
+
+**Alternatives écartées.**
+- Relier directement les tables de faits entre elles : relations plusieurs-à-plusieurs, résultats ambigus.
+- Relations bidirectionnelles : plus simples à première vue, mais elles créent des chemins de filtre multiples et des totaux difficiles à expliquer.
+- Utiliser `Dates[Mois]` (texte) comme clé : il faut relier sur une vraie date pour que les fonctions de temps (`PREVIOUSMONTH`) fonctionnent.
+
+**Limites.** La table `Dates` a des bornes fixes. Si le pipeline produit des données au-delà de septembre 2026, il faudra étendre `CALENDAR`, ou le remplacer par des bornes calculées (`MIN`/`MAX` des dates de faits).
+
+---
+
+## ADR-37 — Masquer les mois incomplets dans une mesure
+
+**Date** : 2026-10-19
+**Statut** : acceptée
+
+**Contexte.** Le dernier mois des données (septembre 2026) n'est que partiellement couvert. Affiché tel quel, il donne l'impression d'un effondrement des ventes : Boissons passe de 206 K€ en août à 124 K€ en septembre.
+
+**Décision.** La mesure `CA rayon mois complet` compare le nombre de jours couverts par les données (`Jours couverts`) au nombre de jours du mois (`DAY ( EOMONTH ( … ) )`) et renvoie une valeur vide si le mois n'est pas complet. Les visuels masquent alors automatiquement la colonne. Les mesures `Dernier mois complet` et `Croissance 6 mois` s'appuient sur la même règle.
+
+**Alternatives écartées.**
+- Décocher septembre dans un filtre de visuel : à refaire à chaque nouveau mois, et facile à oublier.
+- Exclure le mois en amont dans dbt : on perdrait une information utile au pilotage quotidien (page Tendances).
+
+**Limites.** La règle suppose qu'un mois complet a une vente chaque jour. Un jour de fermeture (1er mai, 25 décembre) ferait passer un mois réel pour incomplet ; il faudrait alors comparer à un calendrier d'ouverture plutôt qu'au nombre de jours calendaires.
+
+---
+
+## ADR-38 — La médiane comme référence entre rayons
+
+**Date** : 2026-10-19
+**Statut** : acceptée
+
+**Contexte.** La page Rayons compare un rayon sélectionné à une référence. Le CA par rayon est très déséquilibré : Viandes/charcuterie fait environ 1,25 M€ par mois, les autres rayons au plus 230 K€. La moyenne (environ 92 K€) est tirée vers le haut par ce seul rayon, et presque tous les rayons apparaissent « sous la moyenne ».
+
+**Décision.** La référence est la médiane des rayons (`MEDIANX ( ALL ( Rayons[RAYON] ), … )`), qui représente un rayon typique. Pour la même raison, le dégradé de couleur de la matrice rayons × mois a un maximum fixé à 250 000 € au lieu de la valeur la plus haute, sinon tous les rayons sauf Viandes seraient presque blancs.
+
+**Alternatives écartées.**
+- La moyenne : trompeuse avec une distribution aussi asymétrique.
+- Exclure Viandes du calcul : arbitraire, et à justifier rayon par rayon.
+
+**Limites.** La médiane ne réagit pas aux écarts extrêmes ; elle ne dit pas de combien les gros rayons dominent. Cette information reste visible dans la matrice et dans le KPI « Part du top 3 ».
+
+---
+
+## ADR-39 — Afficher les extrêmes plutôt qu'un simple classement
+
+**Date** : 2026-10-19
+**Statut** : acceptée
+
+**Contexte.** Sur les graphiques d'écart à la moyenne (page Vue d'ensemble) et de croissance sur 6 mois (page Rayons), un « Top 8 » trié par ordre décroissant ne montrait que des rayons en progression. Les rayons qui décrochent, les plus utiles pour un responsable, n'apparaissaient jamais.
+
+**Décision.** Des mesures `Écart extrêmes` et `Croissance extrêmes` classent les rayons deux fois avec `RANKX`, du meilleur au pire puis du pire au meilleur, et ne gardent que les 4 premiers de chaque classement. Les barres sont colorées en vert ou en rouge selon le signe, par une mesure de couleur.
+
+**Alternatives écartées.**
+- Afficher les 29 rayons : illisible dans l'espace disponible.
+- Deux visuels séparés (top et flop) : double l'espace pour la même information.
+
+**Limites.** S'il y a moins de 8 rayons avec des données, les deux classements se recoupent et le graphique affiche moins de 8 barres, ce qui est le comportement attendu.
+
+---
+
+## ADR-40 — Pas de filtre de mois sur les pages Clients RFM et Panier
+
+**Date** : 2026-10-19
+**Statut** : acceptée
+
+**Contexte.** Le cadre de page (menu, titre, segment de mois) a été copié sur toutes les pages. Or `mart_rfm_customers` est un instantané calculé sur toute la période, et les règles d'association sont calculées sur l'ensemble des paniers : ces tables ne sont pas reliées à `Dates`.
+
+**Décision.** Le segment de mois n'existe que sur les pages Vue d'ensemble et Rayons, où il est synchronisé. La page Clients RFM a un segment par segment de clients ; la page Panier n'a pas de filtre de date. Sur la page Rayons, les KPI portent sur le dernier mois complet, affiché en toutes lettres.
+
+**Alternatives écartées.**
+- Un segment de mois synchronisé sur toutes les pages : il afficherait « août 2026 » sur des chiffres qui portent sur toute l'année, et l'utilisateur croirait filtrer sans que rien ne change.
+
+**Limites.** On ne peut pas suivre l'évolution d'un segment RFM dans le temps. Il faudrait historiser la segmentation dans dbt, par exemple avec un snapshot mensuel.
+
+---
+
+## ADR-41 — Libellés de segments ajoutés dans Power BI, valeurs dbt inchangées
+
+**Date** : 2026-10-19
+**Statut** : acceptée
+
+**Contexte.** Les segments RFM produits par dbt sont nommés par volume et par activité (« Achats nombreux, actifs », « Achats moyens, partis »…), conformément à la limite connue du générateur de transactions. Ces noms sont longs à l'affichage. Les mesures `Part Champions`, `Part à risque` et `Part CA Champions` filtrent sur ces valeurs exactes : elles renvoyaient d'abord une valeur vide parce qu'elles cherchaient « Champions » et « À risque », qui n'existent pas.
+
+**Décision.** Une colonne calculée `Segments[Libellé]` (`SWITCH`) donne un nom d'affichage plus court à chaque segment (« Gros acheteurs actifs », « Clients moyens partis »…). Les visuels utilisent `Libellé` ; les mesures et la couleur des barres continuent de filtrer sur `SEGMENT`. La dernière branche du `SWITCH` renvoie le nom d'origine si un nouveau segment apparaît.
+
+**Alternatives écartées.**
+- Renommer les valeurs dans Power Query ou dans la table : casse les mesures qui filtrent sur le texte et rompt la correspondance avec dbt et la documentation.
+- Renommer les segments dans dbt avec des étiquettes marketing (« Champions ») : contredit la décision de nommer les groupes par volume, faute de données réelles pour justifier ces profils.
+
+**Limites.** Les noms de segments sont écrits en dur dans quatre mesures et dans la colonne de libellé. Un changement de nom côté dbt doit être répercuté à la main dans Power BI ; une table de correspondance produite par dbt (seed) supprimerait cette double saisie.
+
+---
+
+## ADR-42 — Définition du segment « à risque »
+
+**Date** : 2026-10-19
+**Statut** : acceptée
+
+**Contexte.** La page Clients RFM met en avant les clients à risque. Deux segments pouvaient prétendre à ce rôle : « Achats faibles, actifs » et « Achats moyens, partis ».
+
+**Décision.** Le segment à risque est « Achats moyens, partis » (environ 6 % des clients, 88 jours sans achat en moyenne, 1 276 € dépensés). En RFM, le risque désigne des clients qui avaient de la valeur et dont la récence se dégrade : ce sont eux qu'une relance peut faire revenir. « Achats faibles, actifs » sont des clients présents mais peu dépensiers, à développer plutôt qu'à retenir. « Achats faibles, partis » (224 jours sans achat) sont considérés comme perdus.
+
+**Alternatives écartées.**
+- « Achats faibles, actifs » : ces clients reviennent régulièrement, il n'y a pas de risque de départ à traiter.
+- Regrouper les deux segments « partis » : mélange des clients récupérables et des clients perdus, et dilue la cible d'une éventuelle campagne.
+
+**Limites.** Les segments reposent sur des seuils fixés dans dbt et sur des transactions synthétiques. Sur des données réelles, il faudrait valider ces seuils avec les équipes marketing et suivre le taux de retour des clients relancés.
+
+---
+
+## ADR-43 — Règles d'association : un seul sens pour le classement par lift
+
+**Date** : 2026-10-19
+**Statut** : acceptée
+
+**Contexte.** `mart_mba_regles` contient 342 règles, c'est-à-dire 171 paires de rayons dans les deux sens (A → B et B → A). La confiance dépend du sens, mais le lift est symétrique. Un « Top 8 par lift » affichait donc chaque paire deux fois, soit 4 paires seulement, et le KPI « Paires fortes » comptait chaque paire en double (62 au lieu de 31).
+
+**Décision.** Une colonne calculée `Sens unique` vaut 1 quand `ITEM_A < ITEM_B` (ordre alphabétique). Le classement par lift et le KPI « Paires fortes » ne gardent que ces lignes. Le tableau des règles et le nuage support × confiance gardent les deux sens, puisque la confiance y est l'information utile. Les règles sont classées en quatre niveaux de force (lift ≥ 10, ≥ 3, ≥ 1,5, en dessous), avec une couleur par niveau et un segment pour filtrer la page.
+
+**Alternatives écartées.**
+- Dédoublonner dans dbt : on perdrait la confiance dans le second sens.
+- Filtrer sur la confiance la plus haute des deux sens : plus complexe, sans gain de lecture.
+
+**Limites.** Les lifts observés (jusqu'à 19) sont très supérieurs à ceux d'un vrai supermarché (1,5 à 3 en général). Ils reflètent les associations intégrées dans le générateur de transactions, pas un comportement d'achat réel.
+
+---
+
+## ADR-44 — Page Tendances : exclusion d'une semaine anormale et comparaison en base 100
+
+**Date** : 2026-10-19
+**Statut** : acceptée
+
+**Contexte.** Deux problèmes sont apparus sur la page Tendances.
+1. Du 23 au 28 septembre 2025, le CA journalier dépasse 100 K€, contre environ 35 K€ les semaines suivantes. Cette semaine correspond au démarrage du générateur de transactions. Elle faussait la moyenne par jour de semaine (le « meilleur jour » sortait mardi à cause d'un seul mardi exceptionnel) et la base de comparaison.
+2. Le graphique ventes / IPC utilisait deux axes. Power BI étirait chaque axe séparément : une hausse de l'IPC d'environ 1,5 % paraissait aussi forte qu'une hausse du CA de près de 190 %, et le graphique suggérait à tort que l'inflation expliquait les ventes.
+
+**Décision.**
+1. Un filtre de page exclut toutes les dates jusqu'au 30 septembre 2025. La page commence au 1er octobre, premier mois complet sans anomalie.
+2. Les deux séries sont ramenées en base 100 sur le premier mois affiché (`CA indice`, `IPC indice`, calculés avec `ALLSELECTED` pour suivre le segment de dates) et tracées sur un seul axe. Le sous-titre rappelle que les prix simulés ne dépendent pas de la date.
+
+Un tableau de diagnostic temporaire (IPC moyen, minimum et maximum par mois) a confirmé que les données INSEE étaient saines (une valeur par mois, de 100,4 à 101,8) et que l'écart venait du double axe.
+
+**Alternatives écartées.**
+- Garder le double axe en fixant les bornes à la main : à refaire si les données changent, et toujours trompeur à la lecture.
+- Corriger l'anomalie dans Power BI sur toutes les pages : le problème vient de l'amont.
+
+**Limites.** Le filtre ne corrige que la page Tendances. La correction durable se trouve en amont : corriger le démarrage du générateur, et ajouter un test dbt qui signale un jour dont le CA s'écarte fortement de la moyenne mobile. Le « meilleur jour » restant (lundi) ne se distingue des autres que de peu : avec des données simulées, le jour de la semaine n'a presque pas d'effet.
