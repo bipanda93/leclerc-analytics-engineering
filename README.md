@@ -49,7 +49,7 @@ flowchart LR
 - **Orchestration** : un DAG Airflow 3 quotidien enchaîne l'extraction INSEE, la reconstruction de Silver puis de Gold, et l'export des tables en CSV. Un test en échec bloque la couche Gold.
 - **Alertes** : notification Slack automatique à chaque échec de tâche Airflow (DAG, tâche, tentative, lien vers les logs), après une relance.
 - **Restitution Power BI** : modèle en étoile (table de dates, dimensions rayons et segments, mesures DAX regroupées), cinq pages : vue d'ensemble, rayons, clients RFM, panier, tendances. Les mois incomplets sont masqués par une mesure, les comparaisons entre rayons utilisent la médiane. Fichier : `restitution/powerbi/leclerc_dashboards.pbix`.
-- **Registre de décisions** : 44 décisions d'architecture avec leur contexte et leurs limites, dans `docs/decisions_architecture.md`. Le journal et les incidents rencontrés sont dans `notes/`.
+- **Registre de décisions** : 45 décisions d'architecture avec leur contexte et leurs limites, dans `docs/decisions_architecture.md`. Le journal et les incidents rencontrés sont dans `notes/`.
 
 ## Orchestration
 

@@ -455,3 +455,26 @@ Un tableau de diagnostic temporaire (IPC moyen, minimum et maximum par mois) a c
 - Corriger l'anomalie dans Power BI sur toutes les pages : le problème vient de l'amont.
 
 **Limites.** Le filtre ne corrige que la page Tendances. La correction durable se trouve en amont : corriger le démarrage du générateur, et ajouter un test dbt qui signale un jour dont le CA s'écarte fortement de la moyenne mobile. Le « meilleur jour » restant (lundi) ne se distingue des autres que de peu : avec des données simulées, le jour de la semaine n'a presque pas d'effet.
+
+---
+
+## ADR-45 — CI sans entrepôt et contrôles obligatoires sur `main`
+
+**Date** : 2026-10-21
+**Statut** : acceptée (remplace en partie la CI dbt décrite plus haut)
+
+**Contexte.** L'essai Snowflake s'est terminé le 20 octobre 2026. Le workflow `dbt-ci.yml` lançait `dbt debug` puis `dbt build` dans le schéma `CI_PR` : il a échoué sur la PR #10, qui ne touchait pourtant pas dbt, et le dépôt, désormais public, affichait une croix rouge. La PR #10 a été fusionnée malgré cet échec, comme la PR #6 avant elle (ADR-34) : la protection de `main` n'exigeait pas que les contrôles passent. Une CI qui n'est pas bloquante n'est qu'un avis.
+
+**Décision.**
+- `dbt-ci.yml` remplace `dbt debug` et `dbt build` par `dbt parse`, avec la cible `ci` et des valeurs factices pour les variables du profil. `dbt parse` ne se connecte jamais à l'entrepôt : il valide le Jinja, les `ref()` et `source()`, les fichiers YAML et les tests déclarés. Les anciennes étapes restent en commentaire dans le fichier, avec la marche à suivre pour les réactiver.
+- Les deux workflows (`dbt-ci.yml` et `airflow-ci.yml`) tournent sur toutes les pull requests vers `main`, sans filtre de chemins.
+- Un ruleset GitHub protège `main` : pull request obligatoire (0 approbation, projet mené seul), contrôles `dbt-parse` et `dag-tests` obligatoires, force push et suppression interdits, liste de contournement vide. Un push direct sur `main` a été testé et refusé (`GH013: Repository rule violations`).
+- Les actions passent à `actions/checkout@v5` et `actions/setup-python@v6` (fin de Node.js 20), et le runner est fixé sur `ubuntu-24.04` au lieu de `ubuntu-latest`.
+
+**Alternatives écartées.**
+- Désactiver le workflow dbt : plus de croix rouge, mais plus aucune preuve.
+- Faire tourner dbt sur DuckDB ou PostgreSQL pendant la CI : on exécuterait le SQL, mais certaines fonctions sont propres à Snowflake. Il faudrait maintenir deux dialectes pour un seul projet.
+- Garder les filtres de chemins : un contrôle obligatoire qui ne se lance pas reste « en attente » pour toujours, et bloque les pull requests qui ne touchent pas dbt (Power BI, documentation).
+- Ouvrir un nouvel essai Snowflake : la CI recasserait 30 jours plus tard.
+
+**Limites.** `dbt parse` ne vérifie pas que le SQL s'exécute, ni que les 33 tests de données passent. Avec un compte Snowflake actif, il faut remettre les secrets et réactiver `dbt build`. Le schéma `CI_PR` porte un nom fixe : deux pull requests simultanées y écriraient en même temps. En équipe, il faudrait un schéma par pull request (par exemple `CI_PR_<numéro>`).
