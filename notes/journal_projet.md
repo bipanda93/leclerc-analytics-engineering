@@ -163,3 +163,40 @@ Correction : `git config http.postBuffer 524288000`.
 - Avant de corriger une anomalie, la localiser précisément (date, valeur) avec un tableau de diagnostic plutôt que de supposer.
 - Un graphique à deux axes compare des formes, pas des ampleurs : pour comparer deux séries d'unités différentes, les ramener en base 100.
 - Le `.pbix` est un binaire : Git ne montre aucune différence entre deux versions. Le format projet Power BI (PBIP), qui enregistre le modèle et les pages en texte, serait plus adapté au suivi de version.
+
+## 2026-10-21 (CI indépendante de Snowflake, contrôles obligatoires)
+
+### Ce qui a été fait
+
+- `dbt-ci.yml` : `dbt debug` et `dbt build` remplacés par `dbt parse`, avec la cible `ci` et des valeurs factices pour les variables du profil. Aucune connexion à Snowflake. Les anciennes étapes restent en commentaire.
+- Filtres de chemins retirés de `dbt-ci.yml` et `airflow-ci.yml` : les deux workflows tournent sur toutes les pull requests vers `main`.
+- Actions passées à `actions/checkout@v5` et `actions/setup-python@v6`, runner fixé sur `ubuntu-24.04`.
+- Ruleset `main` : pull request obligatoire (0 approbation), contrôles `dbt-parse` et `dag-tests` obligatoires, force push et suppression interdits, liste de contournement vide.
+- README aligné sur la CI réelle, ADR-45.
+
+### Incidents et corrections
+
+**CI rouge après la fin de l'essai Snowflake.** `dbt debug` échouait (erreur 390913, « Your free trial has ended ») sur la PR #10, qui ne touchait pas dbt, et le dépôt public affichait une croix rouge.
+Correction : `dbt parse`, qui valide le projet sans se connecter (ADR-45).
+
+**PR fusionnée malgré une CI rouge.** La PR #10 est passée avec un contrôle en échec, comme la PR #6 avant elle (ADR-34) : la protection de `main` n'exigeait pas les contrôles.
+Correction : ruleset avec contrôles obligatoires et sans contournement. Un push direct sur `main` a été testé et refusé (`GH013: Repository rule violations`, « Changes must be made through a pull request », « 2 of 2 required status checks are expected »).
+
+**Commits poussés après la fusion.** La PR #11 a été fusionnée avec son seul premier commit ; les trois commits suivants sont restés sur la branche, sans être testés ni fusionnés.
+Correction : nouvelle PR #12 sur la même branche.
+
+**Filtres de chemins incompatibles avec les contrôles obligatoires.** Un contrôle obligatoire qui ne se lance pas (PR sans fichier dbt) reste « en attente » pour toujours et bloque la fusion.
+Correction : filtres retirés ; les deux workflows durent moins d'une minute et n'ont plus de dépendance externe.
+
+**Avertissements GitHub Actions.** Node.js 20 en fin de vie pour `checkout@v4` et `setup-python@v5`, et migration de `ubuntu-latest` vers Ubuntu 26.
+Correction : versions supérieures des actions, runner fixé.
+
+**Un fichier non enregistré.** Le premier commit de retrait des filtres ne contenait qu'un des deux fichiers (« 1 file changed »).
+Correction : vérification avec `grep -n "paths"` avant de commiter de nouveau.
+
+### Leçons
+
+- Une CI qui dépend d'un compte cloud temporaire a une date d'expiration : les contrôles obligatoires ne doivent dépendre d'aucun service externe.
+- Une CI qui n'est pas bloquante n'est qu'un avis : la règle de protection fait partie de la CI.
+- Toujours vérifier qu'une PR est encore ouverte avant de pousser de nouveaux commits.
+- Lire la ligne « N files changed » d'un commit avant de pousser.
