@@ -4,20 +4,18 @@ on:
   pull_request:
     branches:
       - main
-    paths:
-      - "airflow/**"
-      - ".github/workflows/airflow-ci.yml"
+
 
 jobs:
   dag-tests:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     steps:
       - name: Récupérer le code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Installer Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.12"
 
