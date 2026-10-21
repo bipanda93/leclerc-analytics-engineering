@@ -45,7 +45,7 @@ flowchart LR
   - `mart_kpis_mois_rayon` et `mart_kpis_mois` : chiffre d'affaires, panier moyen, part des rayons ;
   - `mart_tendances_jour` : ventes journalières et indice INSEE, entrée prévue pour la prévision ;
   - `mart_mba_paniers` et `mart_mba_regles` : support, confiance et lift de paires d'articles, calculés en SQL.
-- **Intégration continue** : à chaque pull request, GitHub Actions lance `dbt build` dans un schéma Snowflake isolé (`CI_PR`) et des tests pytest sur le DAG (chargement, tâches, ordre, relances).
+- **Intégration continue** : à chaque pull request, deux contrôles GitHub Actions doivent passer avant toute fusion dans `main` (règle de protection active, sans contournement possible, y compris pour l'administrateur). `dbt parse` valide la structure du projet dbt (Jinja, `ref()`, `source()`, fichiers YAML, tests déclarés) sans connexion à l'entrepôt, et pytest teste le DAG (chargement, tâches, ordre, relances). Jusqu'à la fin de l'essai Snowflake, la CI lançait `dbt build` dans un schéma isolé (`CI_PR`) : ces étapes sont conservées en commentaire dans `dbt-ci.yml`.
 - **Orchestration** : un DAG Airflow 3 quotidien enchaîne l'extraction INSEE, la reconstruction de Silver puis de Gold, et l'export des tables en CSV. Un test en échec bloque la couche Gold.
 - **Alertes** : notification Slack automatique à chaque échec de tâche Airflow (DAG, tâche, tentative, lien vers les logs), après une relance.
 - **Restitution Power BI** : modèle en étoile (table de dates, dimensions rayons et segments, mesures DAX regroupées), cinq pages : vue d'ensemble, rayons, clients RFM, panier, tendances. Les mois incomplets sont masqués par une mesure, les comparaisons entre rayons utilisent la médiane. Fichier : `restitution/powerbi/leclerc_dashboards.pbix`.
@@ -66,6 +66,7 @@ Le pipeline tourne chaque jour à 6 h (heure de Paris) sous Airflow 3, avec Dock
 - Airflow tourne en local : il ne s'exécute que lorsque Docker est démarré.
 - La première semaine de transactions (23 au 28 septembre 2025) est anormalement élevée (plus de 100 K€ par jour contre environ 35 K€ ensuite) : elle est exclue de la page Tendances.
 - Les lifts des règles d'association (jusqu'à 19) et l'absence d'effet du jour de la semaine viennent du générateur, pas d'un comportement d'achat réel.
+- L'entrepôt Snowflake tournait sur un compte d'essai, terminé le 20 octobre 2026. Depuis, la CI valide la structure du projet dbt sans exécuter le SQL : les 33 tests de données ne tournent plus automatiquement.
 
 ## Organisation du dépôt
 
@@ -74,7 +75,7 @@ ingestion/            scripts Python (transactions, INSEE, export Gold, connexio
 snowflake/            droits (RBAC) et requêtes d'exploration
 dbt/leclerc_dbt/      modèles staging et marts, macros, tests, profil de CI
 airflow/              DAG, alertes Slack, tests du DAG, image Docker et profil dbt de production
-.github/workflows/    CI : dbt build et tests du DAG à chaque pull request
+.github/workflows/    CI : validation dbt (dbt parse) et tests du DAG, obligatoires à chaque pull request
 docs/                 décisions d'architecture, segments RFM, captures
 restitution/powerbi/  rapport Power BI, thème et icônes
 notes/                journal de projet et incidents
